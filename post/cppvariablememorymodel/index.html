@@ -1,0 +1,417 @@
+<!doctype html><html lang=zh-cn><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge,chrome=1"><title>C++变量的内存布局 - Lsp3k's Blog</title><meta name=renderer content="webkit"><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1"><meta http-equiv=cache-control content="no-transform"><meta http-equiv=cache-control content="no-siteapp"><meta name=theme-color content="#f8f5ec"><meta name=msapplication-navbutton-color content="#f8f5ec"><meta name=apple-mobile-web-app-capable content="yes"><meta name=apple-mobile-web-app-status-bar-style content="#f8f5ec"><meta name=author content="lsp3k"><meta name=description content="背景 stl库在程序里很常见，然而因为用了大量模板，还有编译选项之类的因素影响，插件直接识别出stl类比较困难，所以记录下windows版本的"><meta name=generator content="Hugo 0.82.0 with theme even"><link rel=canonical href=https://lsp3k.com/post/cppvariablememorymodel/><link rel=apple-touch-icon sizes=180x180 href=/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=/favicon-16x16.png><link rel=manifest href=/manifest.json><link rel=mask-icon href=/safari-pinned-tab.svg color=#5bbad5><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><link href=/sass/main.min.696f9b9a939ab31cd22ca2f361be7755912b70519c7db241696a8ff42c8b26bc.css rel=stylesheet><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin=anonymous><meta property="og:title" content="C++变量的内存布局"><meta property="og:description" content="背景 stl库在程序里很常见，然而因为用了大量模板，还有编译选项之类的因素影响，插件直接识别出stl类比较困难，所以记录下windows版本的"><meta property="og:type" content="article"><meta property="og:url" content="https://lsp3k.com/post/cppvariablememorymodel/"><meta property="article:section" content="post"><meta property="article:published_time" content="2021-03-08T01:17:20+08:00"><meta property="article:modified_time" content="2021-03-08T01:17:20+08:00"><meta itemprop=name content="C++变量的内存布局"><meta itemprop=description content="背景 stl库在程序里很常见，然而因为用了大量模板，还有编译选项之类的因素影响，插件直接识别出stl类比较困难，所以记录下windows版本的"><meta itemprop=datePublished content="2021-03-08T01:17:20+08:00"><meta itemprop=dateModified content="2021-03-08T01:17:20+08:00"><meta itemprop=wordCount content="3775"><meta itemprop=keywords content="cpp,底层,汇编,"><meta name=twitter:card content="summary"><meta name=twitter:title content="C++变量的内存布局"><meta name=twitter:description content="背景 stl库在程序里很常见，然而因为用了大量模板，还有编译选项之类的因素影响，插件直接识别出stl类比较困难，所以记录下windows版本的"><!--[if lte IE 9]><script src=https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js></script><![endif]--><!--[if lt IE 9]><script src=https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js></script><script src=https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js></script><![endif]--></head><body><div id=mobile-navbar class=mobile-navbar><div class=mobile-header-logo><a href=/ class=logo>Lsp3k's Blog</a></div><div class=mobile-navbar-icon><span></span><span></span><span></span></div></div><nav id=mobile-menu class="mobile-menu slideout-menu"><ul class=mobile-menu-list><a href=/><li class=mobile-menu-item>主页</li></a><a href=/post/><li class=mobile-menu-item>归档</li></a><a href=/categories/><li class=mobile-menu-item>分类</li></a><a href=/about/><li class=mobile-menu-item>关于</li></a></ul></nav><div class=container id=mobile-panel><header id=header class=header><div class=logo-wrapper><a href=/ class=logo>Lsp3k's Blog</a></div><nav class=site-navbar><ul id=menu class=menu><li class=menu-item><a class=menu-item-link href=/>主页</a></li><li class=menu-item><a class=menu-item-link href=/post/>归档</a></li><li class=menu-item><a class=menu-item-link href=/categories/>分类</a></li><li class=menu-item><a class=menu-item-link href=/about/>关于</a></li></ul></nav></header><main id=main class=main><div class=content-wrapper><div id=content class=content><article class=post><header class=post-header><h1 class=post-title>C++变量的内存布局</h1><div class=post-meta><span class=post-time>2021-03-08</span><div class=post-category><a href=/categories/cpp/>cpp</a></div><span class=more-meta>约 3775 字</span>
+<span class=more-meta>预计阅读 8 分钟</span>
+<span id=busuanzi_container_page_pv class=more-meta><span id=busuanzi_value_page_pv><img src=/img/spinner.svg alt=spinner.svg></span> 次阅读</span></div></header><div class=post-toc id=post-toc><h2 class=post-toc-title>文章目录</h2><div class=post-toc-content><nav id=TableOfContents><ul><li><ul><li><a href=#背景>背景</a></li><li><a href=#常用基本类型>常用基本类型</a><ul><li><a href=#小结>小结</a></li></ul></li><li><a href=#指针和引用>指针和引用</a><ul><li><a href=#小结-1>小结</a></li></ul></li><li><a href=#简单的struct和class>简单的struct和class</a><ul><li><a href=#小结-2>小结</a></li></ul></li><li><a href=#常见的stl类>常见的stl类</a><ul><li><a href=#stdstring>std::string</a></li><li><a href=#stdvector>std::vector</a></li><li><a href=#stdlist>std::list</a></li><li><a href=#stdset>std::set</a></li><li><a href=#stdmap>std::map</a></li><li><a href=#stdqueue>std::queue</a></li><li><a href=#stddeque>std::deque</a></li></ul></li></ul></li></ul></nav></div></div><div class=post-content><h2 id=背景>背景</h2><p>　　stl库在程序里很常见，然而因为用了大量模板，还有编译选项之类的因素影响，插件直接识别出stl类比较困难，所以记录下windows版本的stl常见类在内存上的特征。</p><h2 id=常用基本类型>常用基本类型</h2><p>　　C++的基本类型（除了bool）也是C的一部分，主要涉及类型大小和内存对齐概念。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=kt>void</span> <span class=nf>test</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=kt>bool</span> <span class=n>a</span> <span class=o>=</span> <span class=nb>true</span><span class=p>;</span>
+	<span class=kt>char</span> <span class=n>b</span> <span class=o>=</span> <span class=sc>&#39;a&#39;</span><span class=p>;</span>
+	<span class=kt>int</span> <span class=n>c</span> <span class=o>=</span> <span class=mi>100</span><span class=p>;</span>
+	<span class=kt>float</span> <span class=n>d</span> <span class=o>=</span> <span class=mf>12.3</span><span class=p>;</span>
+	<span class=kt>double</span> <span class=n>e</span> <span class=o>=</span> <span class=mf>32.1</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div></br><div align=center><img src=/img/Variable-1.PNG width=300 height=400>
+<img src=/img/Variable-2.PNG width=300 height=400></div><p>　　在生成的汇编中可以看出，函数开头通过栈顶指针%ESP移动分配了20(0x14)字节的栈空间，既0x001BFEC0(%EBP)到0x001BFEAC(%ESP)。</p><p>　　从栈底到栈顶的内存分布</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>bool a (0x001BFEBF) = 0x01;   
+char b (0x001BFEBE) = 0x64;  
+?? (0x001BFEBC~0x001BFEBD) 空两字节  
+int c (0x001BFEB8~0x001BFEBB) = 0x00000064;  
+float d (0x001BFEB4~0x001BFEB7) = 0x4144CCCD;  
+double e (0x001BFEAC~0x001BFEB3) = 0x40400CCCCCCCCCCD;  
+</code></pre></td></tr></table></div></div><blockquote><h3 id=小结>小结</h3><p>　　测试的编译器按变量定义顺序从栈底到栈顶依次分配内存，并进行适当内存对齐（4倍数字节的对齐）。</p></blockquote></br></br><h2 id=指针和引用>指针和引用</h2><p>网上经常能看到这样一段引用的定义<br><em><strong>1. 引用就是一个对象的别名。</strong></em><br><em><strong>2. 引用不是值不占内存空间。</strong></em><br><em><strong>3. 引用必须在定义时赋值，将变量与引用绑定。</strong></em><br></br>　　其中第2条引用不占内存空间？？我试图找到出处，找到了C++标准里两句关于引用的内存。</p><blockquote><p>It is unspecified whether or not a reference requires storage (3.7).<br>The storage duration categories apply to references as well.</p></blockquote><p>　　标准的意思应该是不要求引用占用内存，所以不管什么编译器，上面这种肯定的说法存在误导。<br>　　从汇编角度来看，引用不占用内存空间只能是通过寄存器存值，或者每次都进行一次取地址操作。具体实现取决于编译器对栈空间和性能的考虑，毕竟指针变量也经常被优化成不占栈空间，只用寄存器存值。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=kt>void</span> <span class=nf>test2</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=kt>int</span> <span class=n>a</span> <span class=o>=</span> <span class=mh>0xff</span><span class=p>;</span>
+	<span class=kt>int</span><span class=o>*</span> <span class=n>b</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>a</span><span class=p>;</span>
+	<span class=kt>int</span><span class=o>&amp;</span> <span class=n>c</span> <span class=o>=</span> <span class=n>a</span><span class=p>;</span>
+	<span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>d</span> <span class=o>=</span> <span class=mh>0x1234</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><div align=center><img src=/img/Variable-3.PNG width=250 height=350>
+<img src=/img/Variable-4.PNG width=300 height=400></div><p>　　栈空间：20(0x14)字节，0x0018FF38(%EBP)~0x0018FF24(%ESP)<br>　　从栈底到栈顶的内存分布</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>int a (0x0018FF34~0x0018FF37) = 0x000000FF,   
+???? (0x0018FF30~0x0018FF33) = 0x00001234,  
+int* b (0x0018FF2C~0x0018FF2F) = 0x0018FF34,    
+int&amp; c (0x0018FF28~0x0018FF2B) = 0x0018FF34,  
+int&amp;&amp; d (0x0018FF24~0x0018FF27) = 0x0018FF30,   
+</code></pre></td></tr></table></div></div><blockquote><h3 id=小结-1>小结</h3><p>　　从生成的汇编可以看出，此处引用和右值引用在底层的内存布局和指针一致，占用了4字节栈空间，存着指向变量的地址，且右值引用存的常量也占了一部分空间。</p></blockquote></br></br><h2 id=简单的struct和class>简单的struct和class</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=k>struct</span> <span class=nc>MyStruct</span>
+<span class=p>{</span>
+	<span class=kt>int</span> <span class=n>a</span><span class=p>;</span>
+	<span class=kt>char</span> <span class=n>b</span><span class=p>;</span>
+	<span class=n>MyStruct</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span> <span class=p>};</span>
+	<span class=o>~</span><span class=n>MyStruct</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=p>};</span>
+
+	<span class=kt>void</span> <span class=nf>doSomething</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span><span class=o>++</span><span class=p>;</span> <span class=p>};</span>
+<span class=p>};</span>
+
+<span class=k>class</span> <span class=nc>MyClass</span>
+<span class=p>{</span>
+<span class=k>public</span><span class=o>:</span>
+	<span class=kt>int</span> <span class=n>a</span><span class=p>;</span>
+	<span class=kt>char</span> <span class=n>b</span><span class=p>;</span>
+	<span class=n>MyClass</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span> <span class=p>};</span>
+	<span class=o>~</span><span class=n>MyClass</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=p>};</span>
+	<span class=kt>void</span> <span class=nf>doSomething</span><span class=p>()</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>a</span><span class=o>++</span><span class=p>;</span> <span class=p>};</span>
+<span class=p>};</span>
+
+<span class=kt>void</span> <span class=nf>test3</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>MyStruct</span> <span class=n>s</span><span class=p>;</span>
+	<span class=n>s</span><span class=p>.</span><span class=n>a</span> <span class=o>=</span> <span class=mh>0x1234</span><span class=p>;</span>
+	<span class=n>s</span><span class=p>.</span><span class=n>b</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>void</span> <span class=nf>test4</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>MyClass</span> <span class=n>c</span><span class=p>;</span>
+	<span class=n>c</span><span class=p>.</span><span class=n>a</span> <span class=o>=</span> <span class=mh>0x4321</span><span class=p>;</span>
+	<span class=n>c</span><span class=p>.</span><span class=n>b</span> <span class=o>=</span> <span class=mi>2</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test3</span><span class=p>();</span>
+	<span class=n>test4</span><span class=p>();</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><div align=center><img src=/img/Variable-5.PNG width=300 height=400>
+<img src=/img/Variable-6.PNG width=300 height=400></div>　　对比test3()和test4()的汇编生成可以发现，两者基本是一样的，而且因为编译器优化，MyStruct和MyClass调用的构造函数和析构函数被优化成了同一个。<blockquote><h3 id=小结-2>小结</h3><p>　　类和结构体通过传递自身成员变量的栈空间作为this指针来调用成员函数。</p></blockquote></br></br><h2 id=常见的stl类>常见的stl类</h2><h3 id=stdstring>std::string</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=kt>void</span> <span class=nf>test5</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>str</span><span class=p>;</span>
+	<span class=n>str</span><span class=p>.</span><span class=n>assign</span><span class=p>(</span><span class=s>&#34;abcdefg&#34;</span><span class=p>);</span>
+<span class=p>}</span>
+
+<span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test5</span><span class=p>();</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-7.PNG width=1400 height=400><br>　　栈为string分配了24字节的空间。<br></br>　　转到VS下我们可以看到<br><img src=/img/Variable-8.PNG width=1400 height=400><br><img src=/img/Variable-9.PNG width=400 height=200><br>　　string在栈上初始分配了一个16字节的char数组和两个unsigned int。<br></br>　　栈空间：24(0x18)字节，0x0019FF20(%EBP)~0x0019FF08(%ESP)<br>　　从栈底到栈顶的内存布局</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int capacity (0x0019FF1C~0x0019FF1F) = 0x0000000F,    
+unsigned int size (0x0019FF18~0x0019FF1B) = 0x00000007,   
+char buff[16] (0x0018FF08~0x0018FF17) = &#34;abcdefg&#34;,
+</code></pre></td></tr></table></div></div><p>　　可以看出来capacity表示的容器容量15，size是字符串长度，buff是栈上的字符串数组。<br></br>　　这时很容易就想到一个问题，字符串数组只有16字节，而且还存在栈上，如果我们字符串大于16字节呢？？<br><img src=/img/Variable-10.PNG width=800 height=400></p><p>　　从上面调试的图可以看出，栈仍然是24字节，capacity增大到31，之前栈上存字符串的char buff[16]前4字节变成地址了。由此可知，char buff[16]其实是一个union结构体，当字符串空间少于等于16时用做字符串数组，大于16，string会在堆上获取内存数组来存字符串，栈上的buff则用来存字符串地址。</p><blockquote><h4 id=小结-3>小结</h4><p>　　std::string占24字节，包括一个16字节的union结构体和两个unsigned int分别表示容量和字符串长度。当初始化的字符串长度小于15时，std::string在栈上存字符串，后续字符串扩充后，转移到堆上存字符串数组。</p></blockquote></br></br><h3 id=stdvector>std::vector</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=kt>void</span> <span class=nf>test6</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>vect</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test6</span><span class=p>();</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-11.PNG width=1000 height=300><br><img src=/img/Variable-12.PNG width=1000 height=500><br>　　从汇编和调试状态可以看出，栈为空的std::vector<char>分配12字节，其中包含三个char*指针，0x0019FF20(%EBP)~0x0019FF14(%ESP)</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>char* Myend (0x0019FF1C~0x0019FF1F) = 0, 
+char* Mylast (0x0019FF18~0x0019FF1B) = 0, 
+char* Myfirst (0x0019FF14~0x0019FF17) = 0,     
+</code></pre></td></tr></table></div></div></br>　　逐次push进去5个字节可以发现。
+<img src=/img/Variable-13.PNG width=600 height=400> 　
+<img src=/img/Variable-14.PNG width=600 height=300><p>　　栈分配了20字节，std::vector<char>任然占12字节，剩下用于存参数和内存对齐。<br>　　从栈底到栈顶的内存布局</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>char* Myend (0x0019FF14~0x0019FF17) = 0x00558c66, 
+char* Mylast (0x0019FF10~0x0019FF13) = 0x00558c65, 
+char* Myfirst (0x0019FF0C~0x0019FF0F) = 0x00558c60,     
+</code></pre></td></tr></table></div></div><p>　　可以看出，Myfirst~Mylast表示的容器中元素的内存，Myfirst~Myend表示容器的容量。</p><blockquote><h4 id=小结-4>小结</h4><p>　　std::vector在栈上占12字节，分别是三个指针，指向数组的开头结尾和已用内存结尾。当已分配内存不够时会触发扩容重新分配一块内存。</p></blockquote></br></br></br><h3 id=stdlist>std::list</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=cp>#include</span> <span class=cpf>&lt;list&gt;</span><span class=cp>
+</span><span class=cp></span>
+<span class=kt>void</span> <span class=nf>test7</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>list</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>l</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test7</span><span class=p>();</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-15.PNG width=500 height=200></p><p>　　std::list占8字节的栈空间。<br></br><img src=/img/Variable-16.PNG width=600 height=300></p><p>　　从调试状态可以看出std::list包含一个node节点指针Myhead，一个unsigned int Mysize。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize (0x0019FF1C~0x0019FF1F) = 0, 
+char* Myhead (0x0019FF18~0x0019FF1B) = 0x00783FB8,    
+</code></pre></td></tr></table></div></div></br><img src=/img/Variable-17.PNG width=800 height=400><p>　　push两个字节进去发现，Mysize表示有效节点个数，Myhead具有两个指针Prev和Next指向前节点和后节点，Myval存的当前数据值。可见，Myhead是一个双向环形链表。</p><blockquote><h4 id=小结-5>小结</h4><p>　　std::list在栈上占8字节，头节点指针和节点个数size，由双向环形链表实现。节点由指向前后节点的指针和Val值组成。</p></blockquote></br></br><h3 id=stdset>std::set</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=cp>#include</span> <span class=cpf>&lt;set&gt;</span><span class=cp>
+</span><span class=cp></span>
+<span class=kt>void</span> <span class=nf>test8</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>set</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>s</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test8</span><span class=p>();</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-18.PNG width=1000 height=300>
+<img src=/img/Variable-19.PNG width=600 height=400></p><p>　　std::set<char>占栈8字节，0x0019FF20(%EBP)~0x0019FF18(%ESP)</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize (0x0019FF1C~0x0019FF1F) = 0,   
+void* Myhead (0x0019FF18~0x0019FF1B) = 0x0007CFC8,    
+	void* Left,
+	voi* Parent,
+	void* Right,
+	char Color,
+	char lsnil,
+	char Myval,
+</code></pre></td></tr></table></div></div><blockquote><h4 id=小结-6>小结</h4><p>　　std::set包含一个Mysize和Myhead，Myhead是红黑树的头节点指针。节点包含指向父节点和左右节点三个指针，Color，lsnil和Val值。</p></blockquote></br></br><h3 id=stdmap>std::map</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=cp>#include</span> <span class=cpf>&lt;map&gt;</span><span class=cp>
+</span><span class=cp></span>
+<span class=kt>void</span> <span class=nf>test9</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>map</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>,</span> <span class=kt>char</span><span class=o>&gt;</span> <span class=n>map</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>void</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test9</span><span class=p>();</span>
+	<span class=k>return</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-20.PNG width=1000 height=300>
+<img src=/img/Variable-21.PNG width=800 height=500><br>　　std::map也是用了与std::set一样的红黑树结构，区别在于map的val存的是std::pair。<br></br><img src=/img/Variable-23.PNG width=1000 height=300>
+<img src=/img/Variable-22.PNG width=800 height=500><br>　　测试一个std::pair&lt;int, char>可以看到，std::pair&lt;int, char>就是单纯的int和char拼接。</p><blockquote><h4 id=小结-7>小结</h4><p>　　std::map与std::set用红黑树实现，不同点是map的val值存的是std::pair，std::pair是两个类型的值直接连续分配。</p></blockquote></br></br><h3 id=stdqueue>std::queue</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-cpp data-lang=cpp><span class=cp>#include</span> <span class=cpf>&lt;queue&gt;</span><span class=cp>
+</span><span class=cp></span><span class=kt>void</span> <span class=nf>test11</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>std</span><span class=o>::</span><span class=n>queue</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>q</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kt>void</span> <span class=nf>main</span><span class=p>()</span>
+<span class=p>{</span>
+	<span class=n>test11</span><span class=p>();</span>
+	<span class=k>return</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></td></tr></table></div></div><p><img src=/img/Variable-24.PNG width=1000 height=300><br><img src=/img/Variable-25.PNG width=600 height=400><br>　　std::queue通过std::deque实现，占了20字节栈空间，Myproxy指针，Map指针，Mapsize，Myoff，Mysize。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize (0x0019FF1C~0x0019FF1F) = 0,   
+unsigned int Myoff (0x0019FF18~0x0019FF1B) = 0,
+unsigned int Mapsize (0x0019FF14~0x0019FF17) = 0,   
+int** Map (0x0019FF10~0x0019FF13) = 0,
+void* Myproxy (0x0019FF0C~0x0019FF0F) = 0x00784088,
+</code></pre></td></tr></table></div></div><p>　　std::queue push进1个元素后</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize = 1,   
+unsigned int Myoff = 0,
+unsigned int Mapsize = 8,   
+int** Map = 0x00784088,	//-&gt; 0x00785f70 -&gt; 元素
+void* Myproxy = 0x00788da8,
+	void* Mycont = 0x0019FF0C, //-&gt; 0x00788da8
+	void* Myfirstiter = 0;
+</code></pre></td></tr></table></div></div><p>　　std::queue push进9个元素后</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize = 9,   
+unsigned int Myoff = 0,
+unsigned int Mapsize = 8,   
+int** Map = 0x00784088,	//-&gt; 0x00785f70 -&gt; 元素0 1 2 3
+                        //-&gt; 0x00785210 -&gt; 元素4 5 6 7
+                        //-&gt; 0x00785228 -&gt; 元素8
+void* Myproxy = 0x00788da8,
+	void* Mycont = 0x0019FF0C, //-&gt; 0x00788da8
+	void* Myfirstiter = 0;
+</code></pre></td></tr></table></div></div><p>　　然后发现std::queue push到29个元素时Mapsize就会变为16，Mapsize为8时实际上Map只存了7个数组指针，每个数组能存4个元素。</p><blockquote><h4 id=小结-8>小结</h4><p>　　std::queue通过std::deque实现，由Myproxy，Map，Mapsize，Myoff，Mysize组成，主要变化是Map，Mapsize和Mysize，Map是一个指针的数组，映射到存元素的连续空间，std::queue&lt;int>里一块连续内存存4个int。</br></br></p></blockquote><h3 id=stddeque>std::deque</h3><p>　　上面说到std::queue是通过std::deque实现的，所以std::deque也是由Myproxy，Map，Mapsize，Myoff，Mysize组成。std::deque与std::queue区别在于std::deque是双端队列， 可以通过push_front pop_front在前面插入元素。
+　　当我在存有10个元素的std::deque前push_front进1个元素后</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize = 11,   
+unsigned int Myoff = 31,
+unsigned int Mapsize = 8,   
+int** Map = 0x00814088,	//-&gt; 0x00815f70 -&gt; 元素1 2 3 4
+                        //-&gt; 0x00815210 -&gt; 元素5 6 7 8
+                        //-&gt; 0x00815228 -&gt; 元素9 10
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x0081d5f0 -&gt; 元素0
+void* Myproxy = 0x0081ba18,
+	void* Mycont = 0x0019ff00, //-&gt; 0x0081ba18
+	void* Myfirstiter = 0;
+</code></pre></td></tr></table></div></div><p>　　继续push_front</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre class=chroma><code class=language-fallback data-lang=fallback>unsigned int Mysize = 12,   
+unsigned int Myoff = 30,
+unsigned int Mapsize = 8,   
+int** Map = 0x00814088,	//-&gt; 0x00815f70 -&gt; 元素2 3 4 5
+                        //-&gt; 0x00815210 -&gt; 元素6 7 8 9
+                        //-&gt; 0x00815228 -&gt; 元素10 11
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x00000000
+                        //-&gt; 0x0081d5f0 -&gt; 元素0 1
+void* Myproxy = 0x0081ba18,
+	void* Mycont = 0x0019ff00, //-&gt; 0x0081ba18
+	void* Myfirstiter = 0;
+</code></pre></td></tr></table></div></div><p>　　继续操作下去可以观察到，push_front的元素会从放到map最后的数组空间，Myoff表示是第一个元素的索引，比如，Mapsize为8，整个Map可以存32个元素，Myoff=30表示，第一个元素在Map第7个数组的第3个值。</p><blockquote><h4 id=小结-9>小结</h4><p>　　std::deque实现由Myproxy，Map，Mapsize，Myoff，Mysize组成，Mapsize表示Map指针数组大小，Mysize是已存元素大小，std::deque&lt;int>的Map指向的一个数组可以存4个int，Myoff在前插操作时用到，前插元素会从Map最后开始插入，Myoff表示第一个元素在Map所有元素中的索引位置。</p></blockquote></div><div class=post-copyright><p class=copyright-item><span class=item-title>文章作者</span>
+<span class=item-content>lsp3k</span></p><p class=copyright-item><span class=item-title>上次更新</span>
+<span class=item-content>2021-03-08</span></p><p class=copyright-item><span class=item-title>许可协议</span>
+<span class=item-content><a rel="license noopener" href=https://creativecommons.org/licenses/by-nc-nd/4.0/ target=_blank>CC BY-NC-ND 4.0</a></span></p></div><footer class=post-footer><div class=post-tags><a href=/tags/cpp/>cpp</a>
+<a href=/tags/%E5%BA%95%E5%B1%82/>底层</a>
+<a href=/tags/%E6%B1%87%E7%BC%96/>汇编</a></div><nav class=post-nav></nav></footer></article></div><script src=https://utteranc.es/client.js repo=lsp3k/blogcomment issue-term=pathname theme=github-light crossorigin=anonymous async></script><noscript>Please enable JavaScript to view the <a href=https://github.com/utterance>comments powered by utterances.</a></noscript></div></main><footer id=footer class=footer><div class=social-links><a href=mailto:lsp3k@outlook.com class="iconfont icon-email" title=email></a><a href=https://github.com/lsp3k class="iconfont icon-github" title=github></a><a href=https://lsp3k.com/index.xml type=application/rss+xml class="iconfont icon-rss" title=rss></a></div><div class=copyright><span class=power-by>由 <a class=hexo-link href=https://gohugo.io>Hugo</a> 强力驱动</span>
+<span class=division>|</span>
+<span class=theme-info>主题 -
+<a class=theme-link href=https://github.com/olOwOlo/hugo-theme-even>Even</a></span><div class=busuanzi-footer><span id=busuanzi_container_site_pv>本站总访问量 <span id=busuanzi_value_site_pv><img src=/img/spinner.svg alt=spinner.svg></span> 次</span>
+<span class=division>|</span>
+<span id=busuanzi_container_site_uv>本站总访客数 <span id=busuanzi_value_site_uv><img src=/img/spinner.svg alt=spinner.svg></span> 人</span></div><span class=copyright-year>&copy;
+2021<span class=heart><i class="iconfont icon-heart"></i></span><span>lsp3k</span></span></div></footer><div class=back-to-top id=back-to-top><i class="iconfont icon-up"></i></div></div><script src=https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin=anonymous></script><script src=https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin=anonymous></script><script src=https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin=anonymous></script><script type=text/javascript src=/js/main.min.c99b103c33d1539acf3025e1913697534542c4a5aa5af0ccc20475ed2863603b.js></script><script type=text/javascript>window.MathJax={tex:{}}</script><script async src=https://cdn.jsdelivr.net/npm/mathjax@3.0.5/es5/tex-mml-chtml.js integrity="sha256-HGLuEfFcsUJGhvB8cQ8nr0gai9EucOOaIxFw7qxmd+w=" crossorigin=anonymous></script><script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-192279083-1','auto'),ga('set','anonymizeIp',!0),ga('send','pageview'))</script><script async src=https://www.google-analytics.com/analytics.js></script></body></html>

@@ -1,0 +1,2 @@
+User-agent: *
+Sitemap: https://lsp3k.com/sitemap.xml
